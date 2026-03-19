@@ -1,0 +1,29 @@
+[project]
+name = "cvs"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "faiss-gpu>=1.7.2",
+    "matplotlib>=3.10.8",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "pillow>=12.1.1",
+    "scikit-learn>=1.7.2",
+    "timm>=1.0.25",
+    "torch>=2.10.0",
+    "torchvision>=0.25.0",
+    "wandb>=0.25.1",
+    "zstandard>=0.25.0",
+]
+
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+]
+
+lint = [
+    "pyright>=1.1.408",
+    "ruff>=0.15.6",
+]
