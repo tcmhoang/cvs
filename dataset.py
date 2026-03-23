@@ -48,7 +48,9 @@ def io_prepare(
     )
 
 
-def io_cats(test_perc: float, eval_perc: float, train_eval_test: Tuple[str, str, str]):
+def io_cats(
+    test_perc: float, eval_perc: float, train_eval_test: Tuple[str, str, str]
+) -> None:
     if not all(map(os.path.exists, train_eval_test)):
         io_create(*train_eval_test)
 
@@ -69,7 +71,7 @@ def io_cats(test_perc: float, eval_perc: float, train_eval_test: Tuple[str, str,
 
     tot_perc = test_perc + eval_perc
 
-    frac_test_eval = test_perc / eval_perc
+    frac_test_eval = test_perc / eval_perc * 0.5
 
     def extract(path: str, perc: float) -> List[str]:
         files = list(map(lambda f: os.path.join(path, f), os.listdir(path)))
@@ -88,8 +90,11 @@ def io_cats(test_perc: float, eval_perc: float, train_eval_test: Tuple[str, str,
         cast(Tuple[List[str], List[str]], ([], [])),
     )
 
-    for f in test_files:
-        shutil.move(f, os.path.join(test_path, os.path.dirname(f)))
-
-    for f in eval_files:
-        shutil.move(f, os.path.join(eval_path, os.path.dirname(f)))
+    for files, path in [(test_files, test_path), (eval_files, eval_path)]:
+        for f in files:
+            clss_path = os.path.join(path, os.path.basename(os.path.dirname(f)))
+            os.makedirs(clss_path, exist_ok=True)
+            shutil.move(
+                f,
+                os.path.join(clss_path, os.path.basename(f)),
+            )

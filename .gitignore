@@ -4,5 +4,7 @@ lib/**
 lib64
 share/**
 cache/**
+wandb/**
+__pycache__/**
 pyvenv.cfg
 CACHEDIR.TAG
