@@ -1,5 +1,6 @@
-from torch import Tensor, hub, nn, device, ones
+from torch import Tensor, embedding, hub, nn, device, ones
 from typing import cast, Protocol, Any
+from timm.models.vision_transformer import VisionTransformer
 
 
 class DINOv2ViT(Protocol):
@@ -34,11 +35,25 @@ class GeM(nn.Module):
         self.p = nn.Parameter(ones(1) * p)
         self.eps = eps
 
-    def forward(self, x: Tensor):  # [Batch, Num_Patches, Embedding_Dim]
+    def forward(self, x: Tensor) -> Tensor:  # [Batch, Num_Patches, Embedding_Dim]
         return x.clamp(min=self.eps).pow(self.p).mean(dim=1).pow(1.0 / self.p)
 
 
 class RetrievalNet(nn.Module):
-    def __init__(self, model: nn.Module, embeded_dim=384):
+    def __init__(self, model: VisionTransformer, embeded_dim=384) -> None:
         super().__init__()
+
         self.model = model
+        self.gem = GeM()
+
+        self.fc = nn.Sequential(
+            nn.Linear(384, 512), nn.ReLU(), nn.Linear(512, embeded_dim)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        fdicts = self.model.forward_features(x)
+        patches = fdicts[:, 1:, :]  # [Batch, 256, 384]
+        pooled = self.gem(patches)
+        embeddings = self.fc(pooled)
+
+        return nn.functional.normalize(embeddings, p=2, dim=1)
