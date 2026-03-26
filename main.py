@@ -2,6 +2,7 @@ import torch
 import dio
 import dataset
 import config
+import model
 
 
 def main():
@@ -54,6 +55,9 @@ def main():
     )
 
     print("INIT MODEL")
+    m = model.RetrievalNet(
+        model.io_get_model(device), embeding_dim=config.EMBEDDING_DIM
+    )
 
 
 if __name__ == "__main__":

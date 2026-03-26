@@ -1,4 +1,4 @@
-from torch import Tensor, embedding, hub, nn, device, ones
+from torch import Tensor, hub, nn, device, ones
 from typing import cast, Protocol, Any
 from timm.models.vision_transformer import VisionTransformer
 
@@ -11,7 +11,7 @@ class DINOv2ViT(Protocol):
     def to(self, device: device) -> "DINOv2ViT": ...
 
 
-def io_get_model(dev: device) -> nn.Module:
+def io_get_model(dev: device) -> VisionTransformer:
     dinov2_model = cast(
         DINOv2ViT, hub.load("facebookresearch/dinov2", "dinov2_vits14")
     ).to(dev)
@@ -25,7 +25,7 @@ def io_get_model(dev: device) -> nn.Module:
     for param in dinov2_model.norm.parameters():
         param.requires_grad = True
 
-    return cast(nn.Module, dinov2_model)
+    return cast(VisionTransformer, dinov2_model)
 
 
 class GeM(nn.Module):
@@ -40,14 +40,14 @@ class GeM(nn.Module):
 
 
 class RetrievalNet(nn.Module):
-    def __init__(self, model: VisionTransformer, embeded_dim=384) -> None:
+    def __init__(self, model: VisionTransformer, embeding_dim=384) -> None:
         super().__init__()
 
         self.model = model
         self.gem = GeM()
 
         self.fc = nn.Sequential(
-            nn.Linear(384, 512), nn.ReLU(), nn.Linear(512, embeded_dim)
+            nn.Linear(384, 512), nn.ReLU(), nn.Linear(512, embeding_dim)
         )
 
     def forward(self, x: Tensor) -> Tensor:
