@@ -59,6 +59,8 @@ def main():
         model.io_get_model(device), embeding_dim=config.EMBEDDING_DIM
     )
 
+    print("TRAIN")
+
 
 if __name__ == "__main__":
     main()

@@ -52,7 +52,7 @@ def get_loaders(
     train_set_w_batch_zs: Tuple[Dataset, int],
     test_set_w_batch_sz: Tuple[Dataset, int],
     num_workers: int,
-):
+) -> Tuple[DataLoader, DataLoader]:
     return (
         DataLoader(
             train_set_w_batch_zs[0],
