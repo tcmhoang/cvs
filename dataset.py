@@ -1,5 +1,5 @@
 from torch.utils.data import DataLoader
-from torch.utils.data.dataset import Dataset
+from torchvision.datasets import ImageFolder
 from torchvision.transforms import Compose, transforms
 from dio import List, Tuple
 import torchvision
@@ -37,7 +37,7 @@ def get_img_test_transform(
 def get_img_sets(
     train_dir_w_transfomer: Tuple[str, Compose],
     test_dir_w_transformer: Tuple[str, Compose],
-) -> Tuple[Dataset, Dataset]:
+) -> Tuple[ImageFolder, ImageFolder]:
     return (
         torchvision.datasets.ImageFolder(
             root=train_dir_w_transfomer[0], transform=train_dir_w_transfomer[1]
@@ -49,8 +49,8 @@ def get_img_sets(
 
 
 def get_loaders(
-    train_set_w_batch_zs: Tuple[Dataset, int],
-    test_set_w_batch_sz: Tuple[Dataset, int],
+    train_set_w_batch_zs: Tuple[ImageFolder, int],
+    test_set_w_batch_sz: Tuple[ImageFolder, int],
     num_workers: int,
 ) -> Tuple[DataLoader, DataLoader]:
     return (
