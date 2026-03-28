@@ -1,23 +1,16 @@
 from itertools import groupby
-import PIL
-from timm.models.vision_transformer import VisionTransformer
-from torch.nn.parameter import Parameter
-from torch.utils.data import DataLoader, Dataset
 from torch import (
     Tensor,
     cosine_similarity,
-    hub,
     nn,
     device,
     no_grad,
-    ones,
     optim,
     stack,
 )
-from typing import Dict, cast, Protocol, Any, List, Tuple
+from typing import Dict, cast, List, Tuple
 import random
 
-from torchvision.transforms.functional import PILImage
 
 from dataset import ImageFolder
 from model import RetrievalNet
@@ -28,7 +21,7 @@ def train_retrieval_model(
     train_dataset: ImageFolder,
     device: device,
     epochs=20,
-    batch_size=32,
+    batch_size=16,
     lr=1e-4,
     margin=0.5,
 ):
@@ -62,16 +55,40 @@ def train_retrieval_model(
     optimizer = optim.AdamW(get_optimizer_params())
 
     tmloss = nn.TripletMarginLoss(margin=margin, p=2)
-    interation_per_epoch = max(1, len(train_dataset) // batch_size)
+
+    class_to_indices = gen_class_to_idces(train_dataset)
+    clsses = list(class_to_indices.keys())
 
     for e in range(epochs):
-        loss = 0.0
+        eloss = 0.0
 
-        for i in range(interation_per_epoch):
-            pass
+        random.shuffle(clsses)
+        batches = [
+            clsses[i : i + batch_size] for i in range(0, len(clsses), batch_size)
+        ]
+
+        for bcs in batches:
+            embs = (
+                m(t.to(device))
+                for t in gen_triplet_batch(
+                    train_dataset, class_to_indices, bcs, m, device
+                )
+            )
+
+            loss = cast(Tensor, tmloss(*embs))
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            eloss += loss.item()
+
+        print(f"e {e} aloss: {eloss / len(batches):.4f}")
+        # TODO: use wanb
+    return m
 
 
-def gen_class_to_idxes(ds: ImageFolder) -> Dict[int, List[int]]:
+def gen_class_to_idces(ds: ImageFolder) -> Dict[int, List[int]]:
     return {
         k: v
         for k, v in {
