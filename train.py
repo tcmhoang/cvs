@@ -16,7 +16,7 @@ from dataset import ImageFolder
 from model import RetrievalNet
 
 
-def train_retrieval_model(
+def retrieval_model(
     m: RetrievalNet,
     train_dataset: ImageFolder,
     device: device,
@@ -56,7 +56,7 @@ def train_retrieval_model(
 
     tmloss = nn.TripletMarginLoss(margin=margin, p=2)
 
-    class_to_indices = gen_class_to_idces(train_dataset)
+    class_to_indices = _gen_class_to_idces(train_dataset)
     clsses = list(class_to_indices.keys())
 
     for e in range(epochs):
@@ -70,7 +70,7 @@ def train_retrieval_model(
         for bcs in batches:
             embs = (
                 m(t.to(device))
-                for t in gen_triplet_batch(
+                for t in _gen_triplet_batch(
                     train_dataset, class_to_indices, bcs, m, device
                 )
             )
@@ -88,7 +88,7 @@ def train_retrieval_model(
     return m
 
 
-def gen_class_to_idces(ds: ImageFolder) -> Dict[int, List[int]]:
+def _gen_class_to_idces(ds: ImageFolder) -> Dict[int, List[int]]:
     return {
         k: v
         for k, v in {
@@ -101,7 +101,7 @@ def gen_class_to_idces(ds: ImageFolder) -> Dict[int, List[int]]:
     }
 
 
-def gen_triplet_batch(
+def _gen_triplet_batch(
     ds: ImageFolder,
     class_to_indices: Dict[int, List[int]],
     batch_classes: List[int],

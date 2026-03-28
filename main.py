@@ -3,6 +3,7 @@ import dio
 import dataset
 import config
 import model
+import train
 
 
 def main():
@@ -48,8 +49,7 @@ def main():
         ),
     )
 
-    train_loader, test_loader = dataset.get_loaders(
-        (train_set, config.BATCH_SZ),
+    test_loader = dataset.get_test_loaders(
         (test_set, config.TEST_BATCH_SZ),
         config.NUM_WORKERS,
     )
@@ -60,6 +60,17 @@ def main():
     )
 
     print("TRAIN")
+    m = train.retrieval_model(
+        m=m,
+        train_dataset=train_set,
+        device=device,
+        epochs=config.EPOCHS,
+        batch_size=config.BATCH_SZ,
+        lr=config.LEARNING_RATE,
+        margin=config.TRIPLET_MARGIN,
+    )
+
+    print("EVAL")
 
 
 if __name__ == "__main__":

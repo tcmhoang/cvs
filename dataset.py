@@ -48,22 +48,13 @@ def get_img_sets(
     )
 
 
-def get_loaders(
-    train_set_w_batch_zs: Tuple[ImageFolder, int],
+def get_test_loaders(
     test_set_w_batch_sz: Tuple[ImageFolder, int],
     num_workers: int,
-) -> Tuple[DataLoader, DataLoader]:
-    return (
-        DataLoader(
-            train_set_w_batch_zs[0],
-            batch_size=train_set_w_batch_zs[1],
-            shuffle=True,
-            num_workers=num_workers,
-        ),
-        DataLoader(
-            test_set_w_batch_sz[0],
-            batch_size=test_set_w_batch_sz[1],
-            shuffle=False,
-            num_workers=num_workers,
-        ),
+) -> DataLoader:
+    return DataLoader(
+        test_set_w_batch_sz[0],
+        batch_size=test_set_w_batch_sz[1],
+        shuffle=False,
+        num_workers=num_workers,
     )
