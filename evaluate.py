@@ -116,13 +116,11 @@ def io_report_csv(
         {
             "query_id": query_id,
             "query_label": labels[query_id],
-            f"rank{i + 1}_id": int(rids[i]),
-            f"rank{k + 1}_label": int(rlabels[i]),
+            **{f"rank{i + 1}_id": int(rids[i]) for i in range(k)},
+            **{f"rank{i + 1}_label": int(labels[rids[i]]) for i in range(k)},
         }
         for query_id in range(len(labels))
         for rids in Index[query_id][1:]
-        for rlabels in labels[rids]
-        for i in range(k)
     ]
 
     df = pd.DataFrame(rows)
