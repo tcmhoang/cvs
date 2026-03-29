@@ -1,6 +1,7 @@
-from torch import Tensor, hub, nn, device, ones
+from torch import Tensor, hub, nn, device
 from typing import cast
 from timm.models.vision_transformer import VisionTransformer
+import torch
 
 from proc import DINOv2ViT
 
@@ -26,7 +27,7 @@ class GeM(nn.Module):
     def __init__(self, p=3.0, eps=1e-6) -> None:
         super(GeM, self).__init__()
 
-        self.p = nn.Parameter(ones(1) * p)
+        self.p = nn.Parameter(torch.full((1,), float(p)))
         self.eps = eps
         pass
 
@@ -48,7 +49,18 @@ class RetrievalNet(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         fdicts = self.model.forward_features(x)
-        patches = fdicts[:, 1:, :]  # [Batch, 256, 384]
+
+        if isinstance(fdicts, dict):
+            patches = fdicts.get("x_norm_patchtokens")
+            if patches is None:
+                features = fdicts.get("x_norm")
+                patches = cast(Tensor, features)[:, 1:, :]  # [Batch, 256, 384]
+                pass
+        else:
+            features = fdicts
+            patches = features[:, 1:, :]  # [Batch, 256, 384]
+            pass
+
         pooled = self.gem(patches)
         embeddings = self.fc(pooled)
 

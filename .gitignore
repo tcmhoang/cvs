@@ -4,6 +4,7 @@ lib/**
 lib64
 share/**
 cache/**
+out/**
 wandb/**
 __pycache__/**
 pyvenv.cfg

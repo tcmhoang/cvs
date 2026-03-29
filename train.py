@@ -51,7 +51,7 @@ def retrieval_model(
                 if name_w_param[1].requires_grad
             ]
 
-        return [param for e in m_w_lrc for params in go_nwlr(e) for param in params]
+        return [params for e in m_w_lrc for params in go_nwlr(e)]
 
     optimizer = optim.AdamW(get_optimizer_params())
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -73,7 +73,7 @@ def retrieval_model(
             embs = (
                 m(t.to(device))
                 for t in _gen_triplet_batch(
-                    train_dataset, class_to_indices, bcs, m, device
+                    train_dataset, class_to_indices, bcs, m, device, e
                 )
             )
 
@@ -81,6 +81,7 @@ def retrieval_model(
 
             optimizer.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
             optimizer.step()
 
             eloss += loss.item()
@@ -117,8 +118,10 @@ def _gen_triplet_batch(
     batch_classes: List[int],
     m: RetrievalNet,
     device: device,
+    epoch: int,
 ) -> Tuple[Tensor, Tensor, Tensor]:
 
+    sample_num = min(epoch + 4, len(batch_classes) // 2)
     labels = class_to_indices.keys()
 
     anchors, poss, negss = cast(
@@ -138,33 +141,34 @@ def _gen_triplet_batch(
                                     )
                                 ),
                             ),
-                            5,
+                            sample_num,
                         ),
                     )
                     for c in batch_classes
-                    for x, y in random.sample(
-                        cast(List, class_to_indices.get(c)) or [], 2
-                    )
+                    for x, y in [
+                        random.sample(cast(List, class_to_indices.get(c)) or [], 2)
+                    ]
                 ]
             )
         ),
     )
 
     with torch.no_grad():
+        m.eval()
         a_imgs = torch.stack([ds[i][0] for i in anchors]).to(device)
         negs = torch.stack([ds[i][0] for fneg in negss for i in fneg]).to(
             device
         )  # (B*5, C, H, W)
 
         a_embs = m.forward(a_imgs)  # (B, dim)
-        n_embs = m.forward(negs).view(len(anchors), 5, -1)  # (B, 5, dim)
+        n_embs = m.forward(negs).view(len(anchors), sample_num, -1)  # (B, SN, dim)
 
         a_embs = torch.nn.functional.normalize(a_embs, p=2, dim=1)
         n_embs = torch.nn.functional.normalize(n_embs, p=2, dim=2)
 
         pass
 
-    # (B, 1, dim) @ (B, dim, 5) -> (B, 1, 5)
+    # (B, 1, dim) @ (B, dim, SN) -> (B, 1, SN)
     scores = torch.bmm(a_embs.unsqueeze(1), n_embs.transpose(1, 2)).squeeze(1)
     hard_idx = scores.argmax(dim=1)  # (B,)
 

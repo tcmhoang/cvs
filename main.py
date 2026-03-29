@@ -76,7 +76,7 @@ def main():
     print("INIT MODEL")
     m = model.RetrievalNet(
         model.io_get_model(device), embeding_dim=config.EMBEDDING_DIM
-    )
+    ).to(device)
 
     print("TRAIN")
     m = train.retrieval_model(
@@ -90,6 +90,7 @@ def main():
         margin=config.TRIPLET_MARGIN,
     )
 
+    dio.create_dir(config.OUT_DIR)
     torch.save(m.state_dict(), config.MODEL_PATH)
 
     print("EVAL")

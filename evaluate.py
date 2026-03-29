@@ -35,7 +35,7 @@ def extract_features(
             ),
         )
 
-        return np.vstack(features), np.array(labels)
+        return np.vstack(features), np.concatenate(labels)
 
 
 def _io_add_and_search(
