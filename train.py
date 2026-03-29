@@ -70,12 +70,20 @@ def retrieval_model(
         ]
 
         for bcs in batches:
-            embs = (
-                m(t.to(device))
-                for t in _gen_triplet_batch(
-                    train_dataset, class_to_indices, bcs, m, device, e
-                )
-            )
+            imgs = torch.cat(
+                [
+                    t
+                    for t in _gen_triplet_batch(
+                        train_dataset, class_to_indices, bcs, m, device, e
+                    )
+                ],
+                dim=0,
+            ).to(device)
+
+            m.train()
+
+            all_embs = m(imgs)
+            embs = torch.chunk(all_embs, 3, dim=0)
 
             loss = cast(Tensor, tmloss(*embs))
 
@@ -105,7 +113,8 @@ def _gen_class_to_idces(ds: ImageFolder) -> Dict[int, List[int]]:
         for k, v in {
             k: list(map(lambda idx_w_label: idx_w_label[0], k_w_vs))
             for k, k_w_vs in groupby(
-                enumerate(ds.targets), key=lambda idx_w_label: idx_w_label[1]
+                sorted(enumerate(ds.targets), key=lambda x: x[1]),
+                key=lambda idx_w_label: idx_w_label[1],
             )
         }.items()
         if len(v) >= 2
