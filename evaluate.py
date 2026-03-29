@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 from typing import cast, Tuple
 from dataset import Tensor
 import faiss
+import io
+import zstandard as zstd
 
 from model import RetrievalNet
 
@@ -101,9 +103,25 @@ def compute_map(feats: NDArray, labels: NDArray) -> np.floating:
     return np.mean(APs)
 
 
-def save():
-    pass
+def io_save(feats: NDArray, labels: NDArray, path: str) -> None:
+    buffer = io.BytesIO()
+    np.savez(buffer, features=feats, labels=labels)
+    buffer.seek(0)
+
+    cctx = zstd.ZstdCompressor(level=10)
+    compressed_data = cctx.compress(buffer.read())
+
+    with open(path, "wb") as f:
+        f.write(compressed_data)
 
 
-def load():
-    pass
+def io_load(path: str) -> Tuple[NDArray, NDArray]:
+    with open(path, "rb") as f:
+        compressed_data = f.read()
+
+    dctx = zstd.ZstdDecompressor()
+    decompressed_data = dctx.decompress(compressed_data)
+
+    buffer = io.BytesIO(decompressed_data)
+    data = np.load(buffer)
+    return data["features"], data["labels"]
