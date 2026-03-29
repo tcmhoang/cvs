@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from typing import cast, Tuple
 from dataset import Tensor
+import faiss
 
 from model import RetrievalNet
 
@@ -29,11 +30,42 @@ def extract_features(
                 )
             ),
         )
+
         return np.vstack(features), np.array(labels)
 
 
-def eval_rank():
-    pass
+def _io_add_and_search(
+    index: faiss.Index, query_feats: NDArray, top_k: int
+) -> Tuple[NDArray, NDArray]:
+    index.add(query_feats)  # type: ignore
+    distances, indices = index.search(query_feats, top_k)  # type: ignore
+
+    return distances, indices
+
+
+def eval_rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
+    dim = feats.shape[1]
+
+    faiss.normalize_L2(feats)
+    index = faiss.IndexFlatIP(dim)
+
+    _, Index = _io_add_and_search(index, feats, 5)
+
+    r1 = 0
+    rk = 0
+    n = len(labels)
+
+    for i in range(n):
+        retrieved = Index[i][1:]  # skip itself
+        rlabels = labels[retrieved]
+
+        if rlabels[0] == labels[i]:
+            r1 += 1
+        if labels[i] in rlabels[:k]:
+            rk += 1
+        pass
+
+    return r1 / n, rk / n
 
 
 def save():
