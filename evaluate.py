@@ -43,13 +43,20 @@ def _io_add_and_search(
     return distances, indices
 
 
-def eval_rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
+def _get_search_index(feats: NDArray, k=5) -> NDArray:
     dim = feats.shape[1]
 
     faiss.normalize_L2(feats)
     index = faiss.IndexFlatIP(dim)
 
-    _, Index = _io_add_and_search(index, feats, 5)
+    _, Index = _io_add_and_search(index, feats, k)
+
+    return Index
+
+
+def eval_rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
+
+    Index = _get_search_index(feats, k)
 
     r1 = 0
     rk = 0
@@ -66,6 +73,32 @@ def eval_rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
         pass
 
     return r1 / n, rk / n
+
+
+def compute_map(feats: NDArray, labels: NDArray) -> np.floating:
+
+    Index = _get_search_index(feats, len(feats))
+
+    APs = []
+
+    for i in range(len(labels)):
+        retrieved = Index[i][1:]
+        rlabels = labels[retrieved]
+        corrects = rlabels == labels[i]
+
+        precisions = []
+        correct_count = 0
+
+        for j, val in enumerate(corrects):
+            if val:
+                correct_count += 1
+                precisions.append(correct_count / (j + 1))
+
+        APs.append(np.mean(precisions) if len(precisions) > 0 else 0)
+
+        pass
+
+    return np.mean(APs)
 
 
 def save():
