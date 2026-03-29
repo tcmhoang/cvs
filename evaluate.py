@@ -8,6 +8,7 @@ from dataset import Tensor
 import faiss
 import io
 import zstandard as zstd
+import pandas as pd
 
 from model import RetrievalNet
 
@@ -101,6 +102,29 @@ def compute_map(feats: NDArray, labels: NDArray) -> np.floating:
         pass
 
     return np.mean(APs)
+
+
+def io_report_csv(feats: NDArray, labels: NDArray, path: str, k=5) -> pd.DataFrame:
+
+    Index = _get_search_index(feats, k)
+
+    rows = [
+        {
+            "query_id": query_id,
+            "query_label": labels[query_id],
+            f"rank{i + 1}_id": int(rids[i]),
+            f"rank{k + 1}_label": int(rlabels[i]),
+        }
+        for query_id in range(len(labels))
+        for rids in Index[query_id][1:]
+        for rlabels in labels[rids]
+        for i in range(k)
+    ]
+
+    df = pd.DataFrame(rows)
+    df.to_csv(path, index=False)
+
+    return df
 
 
 def io_save(feats: NDArray, labels: NDArray, path: str) -> None:

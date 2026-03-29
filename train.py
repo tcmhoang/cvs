@@ -85,6 +85,8 @@ def retrieval_model(
 
         print(f"e {e} aloss: {eloss / len(batches):.4f}")
         # TODO: use wanb
+        pass
+
     return m
 
 
@@ -147,6 +149,8 @@ def _gen_triplet_batch(
             if dist > best_dist:
                 best_dist = dist
                 best_neg = neg_idx
+                pass
+            pass
 
         assert best_neg is not None
 

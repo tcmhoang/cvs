@@ -34,6 +34,7 @@ class GeM(nn.Module):
 
         self.p = nn.Parameter(ones(1) * p)
         self.eps = eps
+        pass
 
     def forward(self, x: Tensor) -> Tensor:  # [Batch, Num_Patches, Embedding_Dim]
         return x.clamp(min=self.eps).pow(self.p).mean(dim=1).pow(1.0 / self.p)
@@ -49,6 +50,7 @@ class RetrievalNet(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(384, 512), nn.ReLU(), nn.Linear(512, embeding_dim)
         )
+        pass
 
     def forward(self, x: Tensor) -> Tensor:
         fdicts = self.model.forward_features(x)
