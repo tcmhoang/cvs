@@ -7,7 +7,7 @@ from itertools import filterfalse
 import shutil
 
 
-def create(*paths: str) -> None:
+def create_dir(*paths: str) -> None:
     for p in paths:
         try:
             if not os.path.exists(p):
@@ -23,7 +23,7 @@ def prepare(
 ) -> List[str]:
 
     if not all(map(os.path.exists, [cache_dir, train_dir])):
-        create(cache_dir, train_dir)
+        create_dir(cache_dir, train_dir)
 
     def populate(rel_w_path: Tuple[str, str]):
         mb_resolver = reldest_with_srchandler.get(rel_w_path[0])
@@ -52,7 +52,7 @@ def cats(
     test_perc: float, eval_perc: float, train_eval_test: Tuple[str, str, str]
 ) -> None:
     if not all(map(os.path.exists, train_eval_test)):
-        create(*train_eval_test)
+        create_dir(*train_eval_test)
 
     if test_perc + eval_perc > 0.3 or test_perc <= 0 or eval_perc <= 0:
         raise Exception(

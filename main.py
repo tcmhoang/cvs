@@ -4,6 +4,7 @@ import dataset
 import config
 import model
 import train
+import evaluate
 
 
 def main():
@@ -73,6 +74,24 @@ def main():
     torch.save(m.state_dict(), config.MODEL_PATH)
 
     print("EVAL")
+
+    features, labels = evaluate.extract_features(m, test_loader, device)
+
+    r1, r5 = evaluate.rank(features, labels, config.KTOP)
+    map_score = evaluate.map(features, labels)
+
+    # TODO: USE wanb
+    print(f"Rank 1: {r1:.4f}")
+    print(f"Rank 5: {r5:.4f}")
+    print(f"mAP: {map_score:.4f}")
+
+    evaluate.io_save(features, labels, config.EMBEDDING_PATH, config.OUT_DIR)
+
+    evaluate.io_report_csv(
+        features, labels, config.RETRIEVAL_RES_PATH, config.OUT_DIR, config.KTOP
+    )
+
+    pass
 
 
 if __name__ == "__main__":

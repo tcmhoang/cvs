@@ -11,6 +11,7 @@ import zstandard as zstd
 import pandas as pd
 
 from model import RetrievalNet
+import dio
 
 
 def extract_features(
@@ -57,7 +58,7 @@ def _get_search_index(feats: NDArray, k=5) -> NDArray:
     return Index
 
 
-def eval_rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
+def rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
 
     Index = _get_search_index(feats, k)
 
@@ -78,7 +79,7 @@ def eval_rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
     return r1 / n, rk / n
 
 
-def compute_map(feats: NDArray, labels: NDArray) -> np.floating:
+def map(feats: NDArray, labels: NDArray) -> np.floating:
 
     Index = _get_search_index(feats, len(feats))
 
@@ -104,7 +105,10 @@ def compute_map(feats: NDArray, labels: NDArray) -> np.floating:
     return np.mean(APs)
 
 
-def io_report_csv(feats: NDArray, labels: NDArray, path: str, k=5) -> pd.DataFrame:
+def io_report_csv(
+    feats: NDArray, labels: NDArray, path: str, outdir: str, k=5
+) -> pd.DataFrame:
+    dio.create_dir(outdir)
 
     Index = _get_search_index(feats, k)
 
@@ -127,7 +131,9 @@ def io_report_csv(feats: NDArray, labels: NDArray, path: str, k=5) -> pd.DataFra
     return df
 
 
-def io_save(feats: NDArray, labels: NDArray, path: str) -> None:
+def io_save(feats: NDArray, labels: NDArray, path: str, outdir: str) -> None:
+    dio.create_dir(outdir)
+
     buffer = io.BytesIO()
     np.savez(buffer, features=feats, labels=labels)
     buffer.seek(0)
