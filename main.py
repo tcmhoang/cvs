@@ -5,6 +5,7 @@ import config
 import model
 import train
 import evaluate
+import visualize
 
 
 def main():
@@ -90,6 +91,8 @@ def main():
     evaluate.io_report_csv(
         features, labels, config.RETRIEVAL_RES_PATH, config.OUT_DIR, config.KTOP
     )
+
+    visualize.plot_and_log_tsne(features, labels)
 
     pass
 
