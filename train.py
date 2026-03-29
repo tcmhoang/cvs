@@ -1,6 +1,7 @@
 from itertools import groupby
 from torch import (
     Tensor,
+    bmm,
     cosine_similarity,
     nn,
     device,
@@ -10,6 +11,8 @@ from torch import (
 )
 from typing import Dict, cast, List, Tuple
 import random
+
+import torch
 
 
 from dataset import ImageFolder
@@ -25,7 +28,7 @@ def retrieval_model(
     epochs=20,
     batch_size=16,
     lr=1e-4,
-    margin=0.5,
+    margin=0.2,
 ):
     m.train()
 
@@ -122,64 +125,61 @@ def _gen_triplet_batch(
 
     labels = class_to_indices.keys()
 
-    a_pos_negs = [
-        (
-            cast(int, x),
-            cast(int, y),
-            random.sample(
-                cast(
-                    List[int],
-                    class_to_indices.get(
-                        random.choice([label for label in labels if label != c])
-                    ),
-                ),
-                5,
-            ),
-        )
-        for c in batch_classes
-        for x, y in random.sample(cast(List, class_to_indices.get(c)) or [], 2)
-    ]
+    anchors, poss, negss = cast(
+        Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[List[int], ...]],
+        tuple(
+            zip(
+                *[
+                    (
+                        cast(int, x),
+                        cast(int, y),
+                        random.sample(
+                            cast(
+                                List[int],
+                                class_to_indices.get(
+                                    random.choice(
+                                        [label for label in labels if label != c]
+                                    )
+                                ),
+                            ),
+                            5,
+                        ),
+                    )
+                    for c in batch_classes
+                    for x, y in random.sample(
+                        cast(List, class_to_indices.get(c)) or [], 2
+                    )
+                ]
+            )
+        ),
+    )
 
-    def mine_hard_neg(
-        anchor: int,
-        negs: List[int],
-    ) -> int:
-        with no_grad():
-            a_emb = m(ds[anchor][0].unsqueeze(0).to(device))
+    with torch.no_grad():
+        a_imgs = torch.stack([ds[i][0] for i in anchors]).to(device)
+        negs = torch.stack([ds[i][0] for fneg in negss for i in fneg]).to(
+            device
+        )  # (B*5, C, H, W)
 
-        best_neg = None
-        best_dist = -1
+        a_embs = m.forward(a_imgs)  # (B, dim)
+        n_embs = m.forward(negs).view(len(anchors), 5, -1)  # (B, 5, dim)
 
-        for neg_idx in negs:
-            with no_grad():
-                neg_emb = m(ds[neg_idx][0].unsqueeze(0).to(device))
+        a_embs = torch.nn.functional.normalize(a_embs, p=2, dim=1)
+        n_embs = torch.nn.functional.normalize(n_embs, p=2, dim=2)
 
-            dist = cosine_similarity(a_emb, neg_emb).item()
-            if dist > best_dist:
-                best_dist = dist
-                best_neg = neg_idx
-                pass
-            pass
+        pass
 
-        assert best_neg is not None
+    # (B, 1, dim) @ (B, dim, 5) -> (B, 1, 5)
+    scores = torch.bmm(a_embs.unsqueeze(1), n_embs.transpose(1, 2)).squeeze(1)
+    hard_idx = scores.argmax(dim=1)  # (B,)
 
-        return best_neg
+    negs = [negss[i][hard_idx[i]] for i in range(len(anchors))]
 
     return cast(
         Tuple[Tensor, Tensor, Tensor],
         tuple(
             map(
-                stack,
-                zip(
-                    *map(
-                        lambda a_p_ns: (
-                            a_p_ns[0],
-                            a_p_ns[1],
-                            mine_hard_neg(a_p_ns[0], a_p_ns[2]),
-                        ),
-                        a_pos_negs,
-                    )
-                ),
+                lambda idcs: torch.stack([ds[i][0] for i in idcs]),
+                (anchors, poss, negs),
             )
         ),
     )
