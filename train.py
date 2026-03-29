@@ -13,6 +13,7 @@ import random
 
 
 from dataset import ImageFolder
+from main import Logger
 from model import RetrievalNet
 
 
@@ -20,6 +21,7 @@ def retrieval_model(
     m: RetrievalNet,
     train_dataset: ImageFolder,
     device: device,
+    logger: Logger,
     epochs=20,
     batch_size=16,
     lr=1e-4,
@@ -53,6 +55,7 @@ def retrieval_model(
         return [param for e in m_w_lrc for params in go_nwlr(e) for param in params]
 
     optimizer = optim.AdamW(get_optimizer_params())
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     tmloss = nn.TripletMarginLoss(margin=margin, p=2)
 
@@ -83,8 +86,14 @@ def retrieval_model(
 
             eloss += loss.item()
 
-        print(f"e {e} aloss: {eloss / len(batches):.4f}")
-        # TODO: use wanb
+            pass
+
+        scheduler.step()
+
+        avg_loss = eloss / len(batches)
+        print(f"e {e + 1}/{epochs} aloss: {avg_loss:.4f}")
+
+        logger.log({"epoch": e + 1, "train_loss": avg_loss})
         pass
 
     return m

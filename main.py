@@ -1,3 +1,6 @@
+from typing import Dict, cast, Protocol, Any
+import wandb
+
 import torch
 import dio
 import dataset
@@ -9,6 +12,19 @@ import visualize
 
 
 def main():
+
+    wandb.init(
+        project="Retrieval-DINOv2",
+        config={
+            "architecture": "DINOv2_vits14 + GeM + MLP",
+            "epochs": config.EPOCHS,
+            "batch_size": config.BATCH_SZ,
+            "learning_rate": config.LEARNING_RATE,
+            "triplet_margin": config.TRIPLET_MARGIN,
+        },
+    )
+
+    logger = cast(Logger, wandb)
 
     print("CUDA CHECK")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -66,6 +82,7 @@ def main():
         m=m,
         train_dataset=train_set,
         device=device,
+        logger=logger,
         epochs=config.EPOCHS,
         batch_size=config.BATCH_SZ,
         lr=config.LEARNING_RATE,
@@ -78,13 +95,20 @@ def main():
 
     features, labels = evaluate.extract_features(m, test_loader, device)
 
-    r1, r5 = evaluate.rank(features, labels, config.KTOP)
+    r1, rk = evaluate.rank(features, labels, config.KTOP)
     map_score = evaluate.map(features, labels)
 
-    # TODO: USE wanb
     print(f"Rank 1: {r1:.4f}")
-    print(f"Rank 5: {r5:.4f}")
+    print(f"Rank {config.KTOP}: {rk:.4f}")
     print(f"mAP: {map_score:.4f}")
+
+    logger.log(
+        {
+            "Rank-1 Accuracy": r1,
+            f"Rank-{config.KTOP} Accuracy": rk,
+            "mAP Score": map_score,
+        }
+    )
 
     evaluate.io_save(features, labels, config.EMBEDDING_PATH, config.OUT_DIR)
 
@@ -92,10 +116,18 @@ def main():
         features, labels, config.RETRIEVAL_RES_PATH, config.OUT_DIR, config.KTOP
     )
 
-    visualize.plot_and_log_tsne(features, labels)
+    visualize.plot_and_log_tsne(features, labels, logger)
+
+    wandb.finish()
 
     pass
 
 
 if __name__ == "__main__":
     main()
+
+
+class Logger(Protocol):
+    def log(self, data: Dict[str, Any]) -> None: ...
+
+    pass
