@@ -70,6 +70,8 @@ def main():
         margin=config.TRIPLET_MARGIN,
     )
 
+    torch.save(m.state_dict(), config.MODEL_PATH)
+
     print("EVAL")
 
 

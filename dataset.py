@@ -1,3 +1,4 @@
+from torch._prims_common import Tensor
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import Compose, transforms
@@ -51,7 +52,7 @@ def get_img_sets(
 def get_test_loaders(
     test_set_w_batch_sz: Tuple[ImageFolder, int],
     num_workers: int,
-) -> DataLoader:
+) -> DataLoader[Tensor]:
     return DataLoader(
         test_set_w_batch_sz[0],
         batch_size=test_set_w_batch_sz[1],

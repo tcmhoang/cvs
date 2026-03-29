@@ -7,6 +7,8 @@ TRAIN_DIR = os.path.join(CACHE_DIR, "train")
 TEST_DIR = os.path.join(CACHE_DIR, "test")
 EVAL_DIR = os.path.join(CACHE_DIR, "eval")
 
+MODEL_PATH = "model.pth"
+
 WANDB_PRJ = "Retrieval-GeM-DINOv2"
 
 EMBEDDINGS = "embeddings.zst"
