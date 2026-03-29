@@ -1,13 +1,9 @@
 from itertools import groupby
 from torch import (
     Tensor,
-    bmm,
-    cosine_similarity,
     nn,
     device,
-    no_grad,
     optim,
-    stack,
 )
 from typing import Dict, cast, List, Tuple
 import random
@@ -16,7 +12,7 @@ import torch
 
 
 from dataset import ImageFolder
-from main import Logger
+from proc import Logger
 from model import RetrievalNet
 
 

@@ -1,14 +1,8 @@
 from torch import Tensor, hub, nn, device, ones
-from typing import cast, Protocol, Any
+from typing import cast
 from timm.models.vision_transformer import VisionTransformer
 
-
-class DINOv2ViT(Protocol):
-    blocks: nn.ModuleList
-    norm: nn.LayerNorm
-
-    def parameters(self) -> Any: ...
-    def to(self, device: device) -> "DINOv2ViT": ...
+from proc import DINOv2ViT
 
 
 def io_get_model(dev: device) -> VisionTransformer:

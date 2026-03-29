@@ -2,7 +2,7 @@ from numpy._typing import NDArray
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 
-from main import Logger
+from proc import Logger
 import wandb
 
 

@@ -7,4 +7,5 @@ cache/**
 wandb/**
 __pycache__/**
 pyvenv.cfg
+.env
 CACHEDIR.TAG

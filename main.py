@@ -1,6 +1,7 @@
-from typing import Dict, cast, Protocol, Any
+from typing import cast
 import wandb
 
+from proc import Logger
 import torch
 import dio
 import dataset
@@ -125,9 +126,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-class Logger(Protocol):
-    def log(self, data: Dict[str, Any]) -> None: ...
-
-    pass
