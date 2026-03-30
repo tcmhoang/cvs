@@ -28,6 +28,8 @@ def main():
             "triplet_margin": config.TRIPLET_MARGIN,
             "deterministic": config.DETERMINISTIC,
             "seed": config.SEED_VAL,
+            "aqe": config.K_AQE,
+            "t-margin": config.TRIPLET_MARGIN,
         },
     )
 
@@ -61,7 +63,6 @@ def main():
         (
             config.TRAIN_DIR,
             dataset.get_img_train_transform(
-                config.IMAGE_SZ,
                 config.CROP_SZ,
                 config.NORMALIZE_MEAN,
                 config.NORMALIZE_STD,
@@ -105,7 +106,8 @@ def main():
 
     print("EVAL")
 
-    features, labels = evaluate.extract_features(m, test_loader, device)
+    features, labels = evaluate.extract_features(m, test_loader)
+    features = evaluate.apply_aqe(features, k_aqe=config.AQE_K, a=config.AQE_ALPHA)
 
     r1, rk = evaluate.rank(features, labels, config.KTOP)
     map_score = evaluate.map(features, labels)

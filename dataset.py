@@ -8,7 +8,7 @@ from dio import List, Tuple
 
 
 def get_img_train_transform(
-    sqr_sz: int, crop_sz: int, norm_mean: List[float], norm_std: List[float]
+    crop_sz: int, norm_mean: List[float], norm_std: List[float]
 ) -> Compose:
     return torchvision.transforms.Compose(
         [
@@ -28,6 +28,7 @@ def get_img_train_transform(
             ),
             transforms.ToTensor(),
             transforms.Normalize(mean=norm_mean, std=norm_std),
+            transforms.RandomErasing(p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3)),
         ]
     )
 

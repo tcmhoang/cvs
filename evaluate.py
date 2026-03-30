@@ -1,13 +1,13 @@
 import io
-from typing import Tuple, cast, Any
+from typing import Any, Tuple, cast
 
 import faiss
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 import zstandard as zstd
 from numpy._typing import NDArray
-from torch import device
 from torch.utils.data import DataLoader
 
 import dio
@@ -16,8 +16,27 @@ from model import RetrievalNet
 from proc import Dict
 
 
+def apply_aqe(features: NDArray, k_aqe=3, a=0.7) -> NDArray:
+    n = features.shape[0]
+
+    Index = _get_search_index(features, k_aqe + 1)
+    super_features = np.zeros_like(features)
+
+    for i in range(n):
+        top_k_indices = Index[i][1:]
+        top_k_features = features[top_k_indices]
+        top_k_mean = np.mean(top_k_features, axis=0)
+
+        super_features[i] = (a * top_k_features) + ((1.0 - a) * top_k_mean)
+        pass
+
+    faiss.normalize_L2(super_features)
+
+    return super_features
+
+
 def extract_features(
-    m: RetrievalNet, dataloader: DataLoader[Tensor], dev: device
+    m: RetrievalNet, dataloader: DataLoader[Tensor]
 ) -> Tuple[NDArray, NDArray]:
     m.eval()
 
@@ -28,7 +47,17 @@ def extract_features(
                 zip(
                     *[
                         (
-                            m.forward(cast(Tensor, img).to(dev)).cpu().numpy(),
+                            F.normalize(
+                                (
+                                    m.forward(cast(Tensor, img))
+                                    + m.forward(torch.flip(img, dims=[3]))
+                                )
+                                / 2,
+                                p=2,
+                                dim=1,
+                            )
+                            .cpu()
+                            .numpy(),
                             cast(Tensor, label).numpy(),
                         )
                         for img, label in dataloader
@@ -61,6 +90,8 @@ def _get_search_index(feats: NDArray, k=5) -> NDArray:
 
 
 def rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
+
+    k += 1
 
     Index = _get_search_index(feats, k)
 
@@ -110,7 +141,10 @@ def map(feats: NDArray, labels: NDArray) -> np.floating:
 def io_report_csv(
     feats: NDArray, labels: NDArray, path: str, outdir: str, k=5
 ) -> pd.DataFrame:
+
     dio.create_dir(outdir)
+
+    k += 1
 
     Index = _get_search_index(feats, k)
 
