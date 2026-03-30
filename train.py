@@ -9,7 +9,10 @@ from torch import (
     nn,
     optim,
 )
+from torch.amp.autocast_mode import autocast
+from torch.amp.grad_scaler import GradScaler
 
+import config
 from dataset import ImageFolder
 from model import RetrievalNet
 from proc import Logger
@@ -25,7 +28,6 @@ def retrieval_model(
     lr=1e-4,
     margin=0.2,
 ):
-    random.seed(25)
 
     m.train()
 
@@ -55,12 +57,23 @@ def retrieval_model(
         return [params for e in m_w_lrc for params in go_nwlr(e)]
 
     optimizer = optim.AdamW(get_optimizer_params())
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    warmup_scheduler = optim.lr_scheduler.LinearLR(
+        optimizer,
+        start_factor=config.WARM_UP_FACTOR,
+        total_iters=int(config.WARM_UP_PERC * epochs),
+    )
+    main_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    scheduler = optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, main_scheduler], milestones=[5]
+    )
 
     tmloss = nn.TripletMarginLoss(margin=margin, p=2)
 
     class_to_indices = _gen_class_to_idces(train_dataset)
     clsses = list(class_to_indices.keys())
+
+    scaler = GradScaler("cuda" if device.type == "cuda" else "cpu")
 
     for e in range(epochs):
         eloss = 0.0
@@ -82,16 +95,19 @@ def retrieval_model(
             ).to(device)
 
             m.train()
-
-            all_embs = m(imgs)
-            embs = torch.chunk(all_embs, 3, dim=0)
-
-            loss = cast(Tensor, tmloss(*embs))
-
             optimizer.zero_grad()
-            loss.backward()
+
+            with autocast(device_type=device.type, dtype=torch.float16):
+                all_embs = m(imgs)
+                embs = torch.chunk(all_embs, 3, dim=0)
+                loss = cast(Tensor, tmloss(*embs))
+
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)  # Gradient before clipping
             nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
-            optimizer.step()
+
+            scaler.step(optimizer)
+            scaler.update()
 
             eloss += loss.item()
 
@@ -170,8 +186,13 @@ def _gen_triplet_batch(
             device
         )  # (B*5, C, H, W)
 
-        a_embs = m.forward(a_imgs)  # (B, dim)
-        n_embs = m.forward(negs).view(len(anchors), sample_num, -1)  # (B, SN, dim)
+        with autocast(device_type=device.type, dtype=torch.float16):
+            a_embs = m.forward(a_imgs)  # (B, dim)
+            n_embs = m.forward(negs).view(len(anchors), sample_num, -1)  # (B, SN, dim)
+
+        # back to 32
+        a_embs = a_embs.float()
+        n_embs = n_embs.float()
 
         a_embs = torch.nn.functional.normalize(a_embs, p=2, dim=1)
         n_embs = torch.nn.functional.normalize(n_embs, p=2, dim=2)
@@ -180,7 +201,13 @@ def _gen_triplet_batch(
 
     # (B, 1, dim) @ (B, dim, SN) -> (B, 1, SN)
     scores = torch.bmm(a_embs.unsqueeze(1), n_embs.transpose(1, 2)).squeeze(1)
-    hard_idx = scores.argmax(dim=1)  # (B,)
+
+    K = min(3, scores.size(1))
+    topk_indices = scores.topk(K, dim=1).indices  # (B, K)
+
+    rand_cols = torch.randint(0, K, (scores.size(0),), device=device)
+
+    hard_idx = topk_indices[torch.arange(scores.size(0)), rand_cols]  # (B,)
 
     negs = [negss[i][hard_idx[i]] for i in range(len(anchors))]
 

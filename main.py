@@ -1,5 +1,8 @@
+import os
+import random
 from typing import cast
 
+import numpy as np
 import torch
 
 import config
@@ -23,10 +26,16 @@ def main():
             "batch_size": config.BATCH_SZ,
             "learning_rate": config.LEARNING_RATE,
             "triplet_margin": config.TRIPLET_MARGIN,
+            "deterministic": config.DETERMINISTIC,
+            "seed": config.SEED_VAL,
         },
     )
 
     logger = cast(Logger, wandb)
+
+    if config.DETERMINISTIC:
+        set_seed(config.SEED_VAL)
+        pass
 
     print("CUDA CHECK")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -124,6 +133,21 @@ def main():
     wandb.finish()
 
     pass
+
+
+def set_seed(seed=7):
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # for multi-GPU
+
+    # CuDNN backend
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 if __name__ == "__main__":

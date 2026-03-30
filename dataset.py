@@ -16,6 +16,10 @@ def get_img_train_transform(
             transforms.CenterCrop(crop_sz),
             transforms.RandomRotation(15),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.RandomPerspective(distortion_scale=0.2, p=0.5),
+            transforms.RandomApply(
+                [transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))]
+            ),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=norm_mean, std=norm_std),
