@@ -12,15 +12,20 @@ def get_img_train_transform(
 ) -> Compose:
     return torchvision.transforms.Compose(
         [
-            transforms.Resize((sqr_sz, sqr_sz)),
-            transforms.CenterCrop(crop_sz),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-            transforms.RandomPerspective(distortion_scale=0.2, p=0.5),
-            transforms.RandomApply(
-                [transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))]
+            transforms.RandomResizedCrop(
+                size=crop_sz,
+                scale=(0.85, 1.0),
+                ratio=(0.95, 1.05),
             ),
-            transforms.RandomHorizontalFlip(),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.RandomRotation(45),
+            transforms.ColorJitter(
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.2,
+                hue=0.05,  # camera sensor differences
+            ),
             transforms.ToTensor(),
             transforms.Normalize(mean=norm_mean, std=norm_std),
         ]
