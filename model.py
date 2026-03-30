@@ -1,9 +1,16 @@
-from torch import Tensor, hub, nn, device
-from typing import cast
-from timm.models.vision_transformer import VisionTransformer
-import torch
+from typing import Any, Protocol, cast
 
-from proc import DINOv2ViT
+import torch
+from timm.models.vision_transformer import VisionTransformer
+from torch import Tensor, device, hub, nn
+
+
+class DINOv2ViT(Protocol):
+    blocks: nn.ModuleList
+    norm: nn.LayerNorm
+
+    def parameters(self) -> Any: ...
+    def to(self, device: device) -> "DINOv2ViT": ...
 
 
 def io_get_model(dev: device) -> VisionTransformer:
@@ -36,11 +43,11 @@ class GeM(nn.Module):
 
 
 class RetrievalNet(nn.Module):
-    def __init__(self, model: VisionTransformer, embeding_dim=384) -> None:
+    def __init__(self, model: VisionTransformer, gemp: float, embeding_dim=384) -> None:
         super().__init__()
 
         self.model = model
-        self.gem = GeM()
+        self.gem = GeM(p=gemp)
 
         self.fc = nn.Sequential(
             nn.Linear(384, 512), nn.ReLU(), nn.Linear(512, embeding_dim)

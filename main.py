@@ -1,15 +1,16 @@
 from typing import cast
-import wandb
 
-from proc import Logger
 import torch
-import dio
-import dataset
+
 import config
+import dataset
+import dio
+import evaluate
 import model
 import train
-import evaluate
 import visualize
+import wandb
+from proc import Logger
 
 
 def main():
@@ -75,7 +76,7 @@ def main():
 
     print("INIT MODEL")
     m = model.RetrievalNet(
-        model.io_get_model(device), embeding_dim=config.EMBEDDING_DIM
+        model.io_get_model(device), config.GEM_P, embeding_dim=config.EMBEDDING_DIM
     ).to(device)
 
     print("TRAIN")

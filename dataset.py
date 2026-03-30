@@ -1,9 +1,10 @@
+import torchvision
 from torch._prims_common import Tensor
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import Compose, transforms
+
 from dio import List, Tuple
-import torchvision
 
 
 def get_img_train_transform(

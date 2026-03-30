@@ -1,19 +1,18 @@
-from itertools import groupby
-from torch import (
-    Tensor,
-    nn,
-    device,
-    optim,
-)
-from typing import Dict, cast, List, Tuple
 import random
+from itertools import groupby
+from typing import Dict, List, Tuple, cast
 
 import torch
-
+from torch import (
+    Tensor,
+    device,
+    nn,
+    optim,
+)
 
 from dataset import ImageFolder
-from proc import Logger
 from model import RetrievalNet
+from proc import Logger
 
 
 def retrieval_model(
@@ -26,6 +25,8 @@ def retrieval_model(
     lr=1e-4,
     margin=0.2,
 ):
+    random.seed(25)
+
     m.train()
 
     def get_optimizer_params(weight_decay=0.05) -> List[dict]:

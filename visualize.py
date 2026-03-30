@@ -1,9 +1,9 @@
-from numpy._typing import NDArray
 import matplotlib.pyplot as plt
+from numpy._typing import NDArray
 from sklearn.manifold import TSNE
 
-from proc import Logger
 import wandb
+from proc import Logger
 
 
 def plot_and_log_tsne(features: NDArray, labels: NDArray, logger: Logger):

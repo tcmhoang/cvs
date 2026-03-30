@@ -1,17 +1,19 @@
+import io
+from typing import Tuple, cast, Any
+
+import faiss
 import numpy as np
+import pandas as pd
+import torch
+import zstandard as zstd
 from numpy._typing import NDArray
 from torch import device
-import torch
 from torch.utils.data import DataLoader
-from typing import cast, Tuple
-from dataset import Tensor
-import faiss
-import io
-import zstandard as zstd
-import pandas as pd
 
-from model import RetrievalNet
 import dio
+from dataset import Tensor
+from model import RetrievalNet
+from proc import Dict
 
 
 def extract_features(
@@ -112,16 +114,25 @@ def io_report_csv(
 
     Index = _get_search_index(feats, k)
 
-    rows = [
-        {
-            "query_id": query_id,
-            "query_label": labels[query_id],
-            **{f"rank{i + 1}_id": int(rids[i]) for i in range(k)},
-            **{f"rank{i + 1}_label": int(labels[rids[i]]) for i in range(k)},
-        }
-        for query_id in range(len(labels))
-        for rids in Index[query_id][1:]
-    ]
+    def go(i: int) -> Dict[str, Any]:
+        query_label = labels[i]
+        retrieved = Index[i][1:]
+        retrieved_labels = labels[retrieved]
+
+        row = {"query_id": i, "query_label": query_label}
+
+        actual_k = min(k, len(retrieved))
+        for i in range(actual_k):
+            if retrieved[i] == -1:
+                break
+
+            row[f"rank{i + 1}_id"] = int(retrieved[i])
+            row[f"rank{i + 1}_label"] = int(retrieved_labels[i])
+            pass
+
+        return row
+
+    rows = [go(i) for i in range(len(labels))]
 
     df = pd.DataFrame(rows)
     df.to_csv(path, index=False)

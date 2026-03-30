@@ -1,10 +1,10 @@
+import functools
 import math
-from typing import Callable, List, Optional, Tuple, cast
 import os
 import random
-import functools
-from itertools import filterfalse
 import shutil
+from itertools import filterfalse
+from typing import Callable, List, Optional, Tuple, cast
 
 
 def create_dir(*paths: str) -> None:
