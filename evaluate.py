@@ -27,7 +27,7 @@ def apply_aqe(features: NDArray, k_aqe=3, a=0.7) -> NDArray:
         top_k_features = features[top_k_indices]
         top_k_mean = np.mean(top_k_features, axis=0)
 
-        super_features[i] = (a * top_k_features) + ((1.0 - a) * top_k_mean)
+        super_features[i] = (a * features[i]) + ((1.0 - a) * top_k_mean)
         pass
 
     faiss.normalize_L2(super_features)
@@ -36,7 +36,7 @@ def apply_aqe(features: NDArray, k_aqe=3, a=0.7) -> NDArray:
 
 
 def extract_features(
-    m: RetrievalNet, dataloader: DataLoader[Tensor]
+    m: RetrievalNet, dataloader: DataLoader[Tensor], dev: torch.device
 ) -> Tuple[NDArray, NDArray]:
     m.eval()
 
@@ -49,8 +49,8 @@ def extract_features(
                         (
                             F.normalize(
                                 (
-                                    m.forward(cast(Tensor, img))
-                                    + m.forward(torch.flip(img, dims=[3]))
+                                    m.forward(cast(Tensor, img).to(dev))
+                                    + m.forward(torch.flip(img, dims=[3]).to(dev))
                                 )
                                 / 2,
                                 p=2,

@@ -11,6 +11,19 @@ MODEL_PATH = os.path.join(OUT_DIR, "model.pth")
 RETRIEVAL_RES_PATH = os.path.join(OUT_DIR, "retrieval_results.csv")
 EMBEDDING_PATH = os.path.join(OUT_DIR, "seed_embeddings.zst")
 
+
+def get_model_path(ins: str) -> str:
+    return os.path.join(OUT_DIR, f"model-{ins}.pth")
+
+
+def get_rev_res_path(ins: str) -> str:
+    return os.path.join(OUT_DIR, f"retrieval_results-{ins}.csv")
+
+
+def get_emb_path(ins: str) -> str:
+    return os.path.join(OUT_DIR, f"seed_embeddings-{ins}.zst")
+
+
 WANDB_PRJ = "Retrieval-GeM-DINOv2"
 
 EMBEDDINGS = "embeddings.zst"
@@ -28,8 +41,14 @@ EPOCHS = 50
 WARM_UP_PERC = 0.1
 WARM_UP_FACTOR = 0.1
 LEARNING_RATE = 1e-4
-TRIPLET_MARGIN = 0.3
 NUM_WORKERS = 24
+
+MS_ALPHA = 2
+MS_BETA = 50
+MS_BASE = 0.3
+
+MS_K = 4
+
 
 AQE_K = 3
 AQE_ALPHA = 0.7

@@ -1,8 +1,7 @@
-import random
-from itertools import groupby
-from typing import Dict, List, Tuple, cast
+from typing import List, Tuple, cast
 
 import torch
+from pytorch_metric_learning import losses, samplers
 from torch import (
     Tensor,
     device,
@@ -11,6 +10,7 @@ from torch import (
 )
 from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
+from torch.utils.data import DataLoader
 
 import config
 from dataset import ImageFolder
@@ -26,7 +26,6 @@ def retrieval_model(
     epochs=20,
     batch_size=16,
     lr=1e-4,
-    margin=0.2,
 ):
 
     m.train()
@@ -68,41 +67,39 @@ def retrieval_model(
         optimizer, schedulers=[warmup_scheduler, main_scheduler], milestones=[5]
     )
 
-    tmloss = nn.TripletMarginLoss(margin=margin, p=2)
-
-    class_to_indices = _gen_class_to_idces(train_dataset)
-    clsses = list(class_to_indices.keys())
+    msloss = losses.MultiSimilarityLoss(
+        alpha=config.MS_ALPHA, beta=config.MS_BETA, base=config.MS_BASE
+    )
 
     scaler = GradScaler("cuda" if device.type == "cuda" else "cpu")
 
     for e in range(epochs):
         eloss = 0.0
 
-        random.shuffle(clsses)
-        batches = [
-            clsses[i : i + batch_size] for i in range(0, len(clsses), batch_size)
-        ]
+        sampler = samplers.MPerClassSampler(
+            labels=train_dataset.targets,
+            m=config.MS_K,
+            batch_size=batch_size,
+            length_before_new_iter=len(train_dataset),
+        )
 
-        for bcs in batches:
-            imgs = torch.cat(
-                [
-                    t
-                    for t in _gen_triplet_batch(
-                        train_dataset, class_to_indices, bcs, m, device, e
-                    )
-                ],
-                dim=0,
-            ).to(device)
+        loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+
+        for imgs, labels in loader:
+            imgs = imgs.to(device)
+            labels = labels.to(device)
 
             m.train()
             optimizer.zero_grad()
 
             with autocast(device_type=device.type, dtype=torch.float16):
-                all_embs = m(imgs)
-                embs = torch.chunk(all_embs, 3, dim=0)
-                loss = cast(Tensor, tmloss(*embs))
+                embs = m.forward(imgs)
+                pass
+
+            loss = msloss.forward(embs.float(), labels)
 
             scaler.scale(loss).backward()
+
             scaler.unscale_(optimizer)  # Gradient before clipping
             nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
 
@@ -115,108 +112,10 @@ def retrieval_model(
 
         scheduler.step()
 
-        avg_loss = eloss / len(batches)
+        avg_loss = eloss / len(loader)
         print(f"e {e + 1}/{epochs} aloss: {avg_loss:.4f}")
 
         logger.log({"epoch": e + 1, "train_loss": avg_loss})
         pass
 
     return m
-
-
-def _gen_class_to_idces(ds: ImageFolder) -> Dict[int, List[int]]:
-    return {
-        k: v
-        for k, v in {
-            k: list(map(lambda idx_w_label: idx_w_label[0], k_w_vs))
-            for k, k_w_vs in groupby(
-                sorted(enumerate(ds.targets), key=lambda x: x[1]),
-                key=lambda idx_w_label: idx_w_label[1],
-            )
-        }.items()
-        if len(v) >= 2
-    }
-
-
-def _gen_triplet_batch(
-    ds: ImageFolder,
-    class_to_indices: Dict[int, List[int]],
-    batch_classes: List[int],
-    m: RetrievalNet,
-    device: device,
-    epoch: int,
-) -> Tuple[Tensor, Tensor, Tensor]:
-
-    sample_num = min(epoch + 4, len(batch_classes) // 2)
-    labels = class_to_indices.keys()
-
-    anchors, poss, negss = cast(
-        Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[List[int], ...]],
-        tuple(
-            zip(
-                *[
-                    (
-                        cast(int, x),
-                        cast(int, y),
-                        random.sample(
-                            cast(
-                                List[int],
-                                class_to_indices.get(
-                                    random.choice(
-                                        [label for label in labels if label != c]
-                                    )
-                                ),
-                            ),
-                            sample_num,
-                        ),
-                    )
-                    for c in batch_classes
-                    for x, y in [
-                        random.sample(cast(List, class_to_indices.get(c)) or [], 2)
-                    ]
-                ]
-            )
-        ),
-    )
-
-    with torch.no_grad():
-        m.eval()
-        a_imgs = torch.stack([ds[i][0] for i in anchors]).to(device)
-        negs = torch.stack([ds[i][0] for fneg in negss for i in fneg]).to(
-            device
-        )  # (B*5, C, H, W)
-
-        with autocast(device_type=device.type, dtype=torch.float16):
-            a_embs = m.forward(a_imgs)  # (B, dim)
-            n_embs = m.forward(negs).view(len(anchors), sample_num, -1)  # (B, SN, dim)
-
-        # back to 32
-        a_embs = a_embs.float()
-        n_embs = n_embs.float()
-
-        a_embs = torch.nn.functional.normalize(a_embs, p=2, dim=1)
-        n_embs = torch.nn.functional.normalize(n_embs, p=2, dim=2)
-
-        pass
-
-    # (B, 1, dim) @ (B, dim, SN) -> (B, 1, SN)
-    scores = torch.bmm(a_embs.unsqueeze(1), n_embs.transpose(1, 2)).squeeze(1)
-
-    K = min(3, scores.size(1))
-    topk_indices = scores.topk(K, dim=1).indices  # (B, K)
-
-    rand_cols = torch.randint(0, K, (scores.size(0),), device=device)
-
-    hard_idx = topk_indices[torch.arange(scores.size(0)), rand_cols]  # (B,)
-
-    negs = [negss[i][hard_idx[i]] for i in range(len(anchors))]
-
-    return cast(
-        Tuple[Tensor, Tensor, Tensor],
-        tuple(
-            map(
-                lambda idcs: torch.stack([ds[i][0] for i in idcs]),
-                (anchors, poss, negs),
-            )
-        ),
-    )
