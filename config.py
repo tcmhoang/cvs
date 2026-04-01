@@ -26,9 +26,6 @@ def get_emb_path(ins: str) -> str:
 
 WANDB_PRJ = "Retrieval-GeM-DINOv2"
 
-EMBEDDINGS = "embeddings.zst"
-CSV_EXP = "results.csv"
-
 TEST_PERC = 0.1
 EVAL_PERC = 0.1
 

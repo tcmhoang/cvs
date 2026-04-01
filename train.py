@@ -3,7 +3,6 @@ from typing import List, Tuple, cast
 import torch
 from pytorch_metric_learning import losses, samplers
 from torch import (
-    Tensor,
     device,
     nn,
     optim,

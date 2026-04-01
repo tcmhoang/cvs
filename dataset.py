@@ -1,3 +1,4 @@
+import torch
 import torchvision
 from torch._prims_common import Tensor
 from torch.utils.data import DataLoader
@@ -70,3 +71,29 @@ def get_test_loaders(
         shuffle=False,
         num_workers=num_workers,
     )
+
+
+def calc_mean_and_stdev(data_dir: str) -> Tuple[List[float], List[float]]:
+    transform = transforms.Compose(
+        [transforms.Resize((224, 224)), transforms.ToTensor()]
+    )
+
+    tensor_dataset = ImageFolder(root=data_dir, transform=transform)
+
+    loader = DataLoader(tensor_dataset, batch_size=32, num_workers=0, shuffle=False)
+
+    mean = torch.zeros(3)
+    std = torch.zeros(3)
+    total_images = 0
+
+    for images, _ in loader:
+        batch_samples = images.size(0)
+        images = images.view(batch_samples, images.size(1), -1)
+
+        mean += images.mean(2).sum(0)
+        std += images.std(2).sum(0)
+        total_images += batch_samples
+
+    mean /= total_images
+    std /= total_images
+    return mean.tolist(), std.tolist()
