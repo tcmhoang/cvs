@@ -45,7 +45,6 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("POP DS")
-    # TODO: Load from the nw src
     failed_populateds = dio.prepare(
         {"lzupsd": None, "vsd": None}, config.CACHE_DIR, config.TRAIN_DIR
     )

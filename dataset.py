@@ -94,6 +94,7 @@ def calc_mean_and_stdev(data_dir: str) -> Tuple[List[float], List[float]]:
         mean += images.mean(2).sum(0)
         std += images.std(2).sum(0)
         total_images += batch_samples
+        pass
 
     mean /= total_images
     std /= total_images

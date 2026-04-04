@@ -8,6 +8,9 @@ import torch
 import torch.nn.functional as F
 import zstandard as zstd
 from numpy._typing import NDArray
+from sklearn.metrics import accuracy_score, silhouette_score
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 from torch.utils.data import DataLoader
 
 import dio
@@ -105,11 +108,31 @@ def rank(feats: NDArray, labels: NDArray, k=5) -> Tuple[float, float]:
 
         if rlabels[0] == labels[i]:
             r1 += 1
+            pass
         if labels[i] in rlabels[:k]:
             rk += 1
+            pass
         pass
 
     return r1 / n, rk / n
+
+
+def silhouette(embeddings: NDArray, labels: NDArray) -> float:
+    return silhouette_score(embeddings, labels, metric="cosine")
+
+
+def evaluate_knn(embeddings: NDArray, labels: NDArray, k=5) -> float:
+    X_train, X_test, y_train, y_test = train_test_split(
+        embeddings, labels, test_size=0.3, random_state=42, stratify=labels
+    )
+
+    knn = KNeighborsClassifier(n_neighbors=k, metric="cosine")
+    knn.fit(X_train, y_train)
+
+    predictions = knn.predict(X_test)
+    accuracy = accuracy_score(y_test, predictions)
+
+    return accuracy
 
 
 def map(feats: NDArray, labels: NDArray) -> np.floating:
@@ -130,6 +153,9 @@ def map(feats: NDArray, labels: NDArray) -> np.floating:
             if val:
                 correct_count += 1
                 precisions.append(correct_count / (j + 1))
+                pass
+            pass
+        pass
 
         APs.append(np.mean(precisions) if len(precisions) > 0 else 0)
 
@@ -163,6 +189,7 @@ def io_report_csv(
             row[f"rank{i + 1}_id"] = int(retrieved[i])
             row[f"rank{i + 1}_label"] = int(retrieved_labels[i])
             pass
+        pass
 
         return row
 
@@ -186,11 +213,14 @@ def io_save(feats: NDArray, labels: NDArray, path: str, outdir: str) -> None:
 
     with open(path, "wb") as f:
         f.write(compressed_data)
+        pass
+    pass
 
 
 def io_load(path: str) -> Tuple[NDArray, NDArray]:
     with open(path, "rb") as f:
         compressed_data = f.read()
+        pass
 
     dctx = zstd.ZstdDecompressor()
     decompressed_data = dctx.decompress(compressed_data)
