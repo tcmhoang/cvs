@@ -9,11 +9,14 @@ from typing import Callable, List, Optional, Tuple, cast
 
 def create_dir(*paths: str) -> None:
     for p in paths:
-        try:
-            if not os.path.exists(p):
-                os.mkdir(p)
-        except Exception:
-            print(f"Failed to create {p}")
+        os.makedirs(p, exist_ok=True)
+        pass
+    return
+
+
+def appendls(ls: List, lsp: List) -> List:
+    ls.append(lsp)
+    return ls
 
 
 def prepare(
@@ -73,20 +76,16 @@ def cats(
 
     frac_test_eval = test_perc / eval_perc * 0.5
 
-    def extract(path: str, perc: float) -> List[str]:
+    def go_split(path: str, perc: float) -> Tuple[List[str], List[str]]:
         files = list(map(lambda f: os.path.join(path, f), os.listdir(path)))
-        random.shuffle(files)
-        return [file for file in files[: max(math.floor(len(files) * perc), 2)]]
+        sample_size = max(math.floor(len(files) * perc), 2)
+        sample = random.sample(files, sample_size)
+        portion_size = math.floor(frac_test_eval * sample_size)
+        return sample[:portion_size], sample[portion_size:]
 
     test_files, eval_files = functools.reduce(
-        lambda acc, tups: (acc[0] + tups[0], acc[1] + tups[1]),
-        map(
-            lambda files: (
-                files[: max(1, math.floor(len(files) * frac_test_eval))],
-                files[max(1, math.floor(len(files) * frac_test_eval)) :],
-            ),
-            map(lambda path: extract(path, tot_perc), target_paths),
-        ),
+        lambda acc, tups: (appendls(acc[0], tups[0]), appendls(acc[1], tups[1])),
+        map(lambda path: go_split(path, tot_perc), target_paths),
         cast(Tuple[List[str], List[str]], ([], [])),
     )
 

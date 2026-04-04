@@ -17,6 +17,7 @@ def get_img_train_transform(
                 size=crop_sz,
                 scale=(0.85, 1.0),
                 ratio=(0.95, 1.05),
+                interpolation=transforms.InterpolationMode.BICUBIC,
             ),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomVerticalFlip(p=0.5),
