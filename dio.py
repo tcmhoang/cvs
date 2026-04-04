@@ -15,7 +15,7 @@ def create_dir(*paths: str) -> None:
 
 
 def appendls(ls: List, lsp: List) -> List:
-    ls.append(lsp)
+    ls.extend(lsp)
     return ls
 
 
@@ -58,8 +58,8 @@ def cats(
         create_dir(*train_eval_test)
 
     if test_perc + eval_perc > 0.3 or test_perc <= 0 or eval_perc <= 0:
-        raise Exception(
-            "Sum of Test and Evaluation's Sample percentage shoud not be larger than 30% and both must positive"
+        raise ValueError(
+            "Sum of Test and Evaluation's Sample percentage should not be larger than 30% and both must positive"
         )
 
     train_path, eval_path, test_path = train_eval_test
