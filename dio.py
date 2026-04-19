@@ -14,10 +14,6 @@ def create_dir(*paths: str) -> None:
     return
 
 
-def appendls(ls: List, lsp: List) -> List:
-    ls.extend(lsp)
-    return ls
-
 
 def prepare(
     reldest_with_srchandler: dict[str, Optional[Callable[[str], bool]]],
@@ -59,7 +55,7 @@ def cats(
 
     if test_perc + eval_perc > 0.3 or test_perc <= 0 or eval_perc <= 0:
         raise ValueError(
-            "Sum of Test and Evaluation's Sample percentage should not be larger than 30% and both must positive"
+            "Sum of Test and Evaluation's Sample percentage shoud not be larger than 30% and both must positive"
         )
 
     train_path, eval_path, test_path = train_eval_test
@@ -82,6 +78,10 @@ def cats(
         sample = random.sample(files, sample_size)
         portion_size = math.floor(frac_test_eval * sample_size)
         return sample[:portion_size], sample[portion_size:]
+
+    def appendls(ls: List, lsp: List) -> List:
+        ls.extend(lsp) # Anti-pattern but faster than using +
+        return ls
 
     test_files, eval_files = functools.reduce(
         lambda acc, tups: (appendls(acc[0], tups[0]), appendls(acc[1], tups[1])),
