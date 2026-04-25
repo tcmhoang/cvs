@@ -48,18 +48,8 @@ def get_img_test_transform(
     )
 
 
-def get_img_sets(
-    train_dir_w_transfomer: Tuple[str, Compose],
-    test_dir_w_transformer: Tuple[str, Compose],
-) -> Tuple[ImageFolder, ImageFolder]:
-    return (
-        torchvision.datasets.ImageFolder(
-            root=train_dir_w_transfomer[0], transform=train_dir_w_transfomer[1]
-        ),
-        torchvision.datasets.ImageFolder(
-            root=test_dir_w_transformer[0], transform=test_dir_w_transformer[1]
-        ),
-    )
+def get_img_set(path: str, trans: Compose) -> ImageFolder:
+    return torchvision.datasets.ImageFolder(root=path, transform=trans)
 
 
 def get_test_loaders(

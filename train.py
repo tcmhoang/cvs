@@ -1,7 +1,7 @@
-from typing import List, Tuple, cast
+from typing import Callable, List, Tuple, cast
 
 import torch
-from pytorch_metric_learning import losses, samplers
+from pytorch_metric_learning import losses
 from torch import (
     device,
     nn,
@@ -19,15 +19,26 @@ from proc import Logger
 
 def retrieval_model(
     m: RetrievalNet,
-    train_dataset: ImageFolder,
+    train_dataset_supplier: Callable[[], ImageFolder],
     device: device,
     logger: Logger,
-    epochs=20,
-    batch_size=16,
-    lr=1e-4,
+    epochs=config.EPOCHS,
+    batch_size=config.BATCH_SZ,
+    lr=config.LEARNING_RATE,
 ):
 
     m.train()
+
+    train_dataset = train_dataset_supplier()
+
+    loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        num_workers=4,
+        shuffle=True,
+        pin_memory=True,
+        drop_last=True,
+    )
 
     def get_optimizer_params(weight_decay=0.05) -> List[dict]:
         blocks = cast(nn.ModuleList, m.model.blocks)
@@ -54,20 +65,22 @@ def retrieval_model(
 
         return [params for e in m_w_lrc for params in go_nwlr(e)]
 
-    optimizer = optim.AdamW(get_optimizer_params())
-    warmup_scheduler = optim.lr_scheduler.LinearLR(
+    loss_fn = losses.ProxyAnchorLoss(
+        num_classes=len(train_dataset.classes),
+        embedding_size=config.EMBEDDING_DIM,
+        margin=config.PA_MARGIN,
+        alpha=config.PA_A,
+    ).to(device)
+
+    params = get_optimizer_params()
+    params.append(
+        {"params": loss_fn.parameters(), "lr": lr * 100, "weight_decay": 1e-4}
+    )
+
+    optimizer = optim.AdamW(params)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        start_factor=config.WARM_UP_FACTOR,
-        total_iters=int(config.WARM_UP_PERC * epochs),
-    )
-    main_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-
-    scheduler = optim.lr_scheduler.SequentialLR(
-        optimizer, schedulers=[warmup_scheduler, main_scheduler], milestones=[5]
-    )
-
-    msloss = losses.MultiSimilarityLoss(
-        alpha=config.MS_ALPHA, beta=config.MS_BETA, base=config.MS_BASE
+        T_max=epochs,
     )
 
     scaler = GradScaler("cuda" if device.type == "cuda" else "cpu")
@@ -75,31 +88,21 @@ def retrieval_model(
     for e in range(epochs):
         eloss = 0.0
 
-        sampler = samplers.MPerClassSampler(
-            labels=train_dataset.targets,
-            m=config.MS_K,
-            batch_size=batch_size,
-            length_before_new_iter=len(train_dataset),
-        )
-
-        loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
-
         for imgs, labels in loader:
             imgs = imgs.to(device)
             labels = labels.to(device)
 
-            m.train()
             optimizer.zero_grad()
 
             with autocast(device_type=device.type, dtype=torch.float16):
                 embs = m.forward(imgs)
+                loss = loss_fn.forward(embs.float(), labels)
                 pass
 
-            loss = msloss.forward(embs.float(), labels)
-
             scaler.scale(loss).backward()
-
             scaler.unscale_(optimizer)  # Gradient before clipping
+
+            torch.nn.utils.clip_grad_norm_(loss_fn.parameters(), max_norm=1.0)
             nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
 
             scaler.step(optimizer)
