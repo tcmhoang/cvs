@@ -40,7 +40,7 @@ def plot_and_log_tsne(features: NDArray, labels: NDArray, logger: Logger):
     pass
 
 
-def plot_umap(features: NDArray, labels: NDArray):
+def plot_umap(features: NDArray, labels: NDArray, logger: Logger):
     umap_model = umap.UMAP(
         n_neighbors=15, min_dist=0.1, n_components=2, random_state=42
     )
@@ -63,6 +63,7 @@ def plot_umap(features: NDArray, labels: NDArray):
     fig.colorbar(scatter, ax=ax, label="Class Label")
     ax.axis("off")
 
-    plt.show(fig, ax)
-    plt.show()
+    logger.log({"t-SNE Clustering": wandb.Image(fig)})
+    plt.close(fig)
+
     pass

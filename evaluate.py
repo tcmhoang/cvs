@@ -121,7 +121,7 @@ def silhouette(embeddings: NDArray, labels: NDArray) -> float:
     return silhouette_score(embeddings, labels, metric="cosine")
 
 
-def evaluate_knn(embeddings: NDArray, labels: NDArray, k=5) -> float:
+def knn(embeddings: NDArray, labels: NDArray, k=5) -> float:
     X_train, X_test, y_train, y_test = train_test_split(
         embeddings, labels, test_size=0.3, random_state=42, stratify=labels
     )

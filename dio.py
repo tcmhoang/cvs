@@ -14,7 +14,6 @@ def create_dir(*paths: str) -> None:
     return
 
 
-
 def prepare(
     reldest_with_srchandler: dict[str, Optional[Callable[[str], bool]]],
     cache_dir: str,
@@ -70,7 +69,7 @@ def cats(
 
     tot_perc = test_perc + eval_perc
 
-    frac_test_eval = test_perc / eval_perc * 0.5
+    frac_test_eval = test_perc / (eval_perc + test_perc)
 
     def go_split(path: str, perc: float) -> Tuple[List[str], List[str]]:
         files = list(map(lambda f: os.path.join(path, f), os.listdir(path)))
@@ -80,7 +79,7 @@ def cats(
         return sample[:portion_size], sample[portion_size:]
 
     def appendls(ls: List, lsp: List) -> List:
-        ls.extend(lsp) # Anti-pattern but faster than using +
+        ls.extend(lsp)  # Anti-pattern but faster than using +
         return ls
 
     test_files, eval_files = functools.reduce(

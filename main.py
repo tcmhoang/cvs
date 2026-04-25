@@ -114,16 +114,22 @@ def main():
 
     r1, rk = evaluate.rank(features, labels, config.KTOP)
     map_score = evaluate.map(features, labels)
+    sil_score = evaluate.silhouette(features, labels)
+    knn_acc = evaluate.knn(features, labels) * 100
 
     print(f"Rank 1: {r1:.4f}")
     print(f"Rank {config.KTOP}: {rk:.4f}")
     print(f"mAP: {map_score:.4f}")
+    print(f"Silhouette: {sil_score:.4f}")
+    print(f"k-NN Accuracy (k=5): {knn_acc:.2f}%")
 
     logger.log(
         {
             "Rank-1 Accuracy": r1,
             f"Rank-{config.KTOP} Accuracy": rk,
             "mAP Score": map_score,
+            "sil": sil_score,
+            "k-NN": knn_acc,
         }
     )
 
@@ -134,6 +140,7 @@ def main():
     )
 
     visualize.plot_and_log_tsne(features, labels, logger)
+    visualize.plot_umap(features, labels, logger)
 
     wandb.finish()
 
