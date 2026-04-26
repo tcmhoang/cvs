@@ -20,7 +20,6 @@ def main():
             "ref": input("instance? "),
             "epochs": config.EPOCHS,
             "batch_size": config.BATCH_SZ,
-            "msk": config.MS_K,
             "learning_rate": config.LEARNING_RATE,
             "deterministic": config.DETERMINISTIC,
             "seed": config.SEED_VAL,
@@ -34,23 +33,13 @@ def main():
 
     logger = cast(Logger, wandb)
 
-    _, test_set = dataset.get_img_sets(
-        (
-            config.TRAIN_DIR,
-            dataset.get_img_train_transform(
-                config.CROP_SZ,
-                config.NORMALIZE_MEAN,
-                config.NORMALIZE_STD,
-            ),
-        ),
-        (
-            config.TEST_DIR,
-            dataset.get_img_test_transform(
-                config.IMAGE_SZ,
-                config.CROP_SZ,
-                config.NORMALIZE_MEAN,
-                config.NORMALIZE_STD,
-            ),
+    test_set = dataset.get_img_set(
+        config.TEST_DIR,
+        dataset.get_img_test_transform(
+            config.IMAGE_SZ,
+            config.CROP_SZ,
+            config.NORMALIZE_MEAN,
+            config.NORMALIZE_STD,
         ),
     )
 
