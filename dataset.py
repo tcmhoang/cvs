@@ -28,6 +28,10 @@ def get_img_train_transform(
                 saturation=0.2,
                 hue=0.05,  # camera sensor differences
             ),
+            transforms.RandomApply(
+                [transforms.GaussianBlur(kernel_size=(1, 4), sigma=(0.01, 0.5))], p=0.2
+            ),
+            transforms.RandomAdjustSharpness(sharpness_factor=0.2, p=0.5),
             transforms.ToTensor(),
             transforms.Normalize(mean=norm_mean, std=norm_std),
             transforms.RandomErasing(p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3)),

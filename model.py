@@ -50,7 +50,7 @@ class RetrievalNet(nn.Module):
         self.gem = GeM(p=gemp)
 
         self.fc = nn.Sequential(
-            nn.Linear(384, 512), nn.ReLU(), nn.Linear(512, embeding_dim)
+            nn.Linear(384, 512), nn.GELU(), nn.Linear(512, embeding_dim)
         )
         pass
 
@@ -71,4 +71,4 @@ class RetrievalNet(nn.Module):
         pooled = self.gem(patches)
         embeddings = self.fc(pooled)
 
-        return nn.functional.normalize(embeddings, p=2, dim=1)
+        return nn.functional.normalize(pooled + embeddings, p=2, dim=1)
