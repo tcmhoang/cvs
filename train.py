@@ -45,7 +45,7 @@ def retrieval_model(
         backbone = [blocks[-1], m.model.norm]
         head = [m.gem, m.fc]
 
-        m_w_lrc = [(backbone, 0.1), (head, 1)]
+        m_w_lrc = [(backbone, 0.1), (head, 5)]
 
         def go_nwlr(data: Tuple[List[nn.Module], float]) -> List[dict]:
             ms, coeff = data
@@ -78,9 +78,19 @@ def retrieval_model(
     )
 
     optimizer = optim.AdamW(params)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
+
+    wepochs = int(config.WARM_UP_PERC * epochs)
+
+    warmup_scheduler = optim.lr_scheduler.LinearLR(
         optimizer,
-        T_max=epochs,
+        start_factor=config.WARM_UP_FACTOR,
+        total_iters=wepochs,
+    )
+    main_scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=epochs - wepochs
+    )
+    scheduler = optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, main_scheduler], milestones=[wepochs]
     )
 
     scaler = GradScaler("cuda" if device.type == "cuda" else "cpu")
@@ -115,9 +125,10 @@ def retrieval_model(
         scheduler.step()
 
         avg_loss = eloss / len(loader)
-        print(f"e {e + 1}/{epochs} aloss: {avg_loss:.4f}")
+        clr = optimizer.param_groups[0]["lr"]
+        print(f"e {e + 1}/{epochs} aloss: {avg_loss:.4f} base_lr: {clr:.6f}")
 
-        logger.log({"epoch": e + 1, "train_loss": avg_loss})
+        logger.log({"epoch": e + 1, "train_loss": avg_loss, "base_lr": clr})
         pass
 
     return m
