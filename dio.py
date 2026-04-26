@@ -5,6 +5,10 @@ import random
 import shutil
 from itertools import filterfalse
 from typing import Callable, List, Optional, Tuple, cast
+from PIL.ImageFile import ImageFile
+from rembg import remove
+from PIL import Image, ImageOps
+from rembg.bg import BaseSession
 
 
 def create_dir(*paths: str) -> None:
@@ -44,6 +48,32 @@ def prepare(
             ),
         )
     )
+
+
+def preprocess_img(
+    indir: str,
+    outdir: str,
+    session: BaseSession | None = None,
+    tsize=(512, 512),
+    bg_rgb=(0, 0, 0),
+) -> None:
+    img = Image.open(indir).convert("RGBA")
+    no_bg = cast(ImageFile, remove(img, session=session))
+
+    bbox = no_bg.getbbox()
+    if not no_bg:
+        print(f"Failed to detected object w/in img {indir}")
+        return
+
+    cropped = no_bg.crop(bbox)
+
+    core = Image.new("RGB", cropped.size, bg_rgb)
+    core.paste(cropped, (0, 0), mask=cropped.split()[3])
+
+    ImageOps.pad(core, tsize, color=bg_rgb, method=Image.Resampling.LANCZOS).save(
+        outdir
+    )
+    return
 
 
 def cats(
