@@ -9,12 +9,14 @@ from torch import (
 )
 from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 import config
 from dataset import ImageFolder
 from model import RetrievalNet
 from proc import Logger
+
+import numpy as np
 
 
 def retrieval_model(
@@ -31,11 +33,20 @@ def retrieval_model(
 
     train_dataset = train_dataset_supplier()
 
+    targets = train_dataset.targets
+    sample_weights_np = 1.0 / np.bincount(targets)
+    sample_weights = [float(sample_weights_np[t]) for t in targets]
+    sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+    )
+
     loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
+        sampler=sampler,
         num_workers=4,
-        shuffle=True,
         pin_memory=True,
         drop_last=True,
     )
