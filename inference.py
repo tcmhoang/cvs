@@ -39,7 +39,10 @@ class Inference:
 
         with torch.no_grad():
             with autocast(device_type=self.device.type, dtype=torch.float16):
-                emb = self.model.forward(img_tensor).float()
+                flipped_tensor = torch.flip(img_tensor, dims=[3])
+                emb = (
+                    self.model.forward(img_tensor) + self.model.forward(flipped_tensor)
+                ) / 2.0
                 emb = torch.nn.functional.normalize(emb, p=2, dim=1)
                 pass
             pass
