@@ -14,6 +14,8 @@ class DINOv2ViT(Protocol):
     def parameters(self) -> Any: ...
     def to(self, device: device) -> "DINOv2ViT": ...
 
+    pass
+
 
 def model_freeze_backbone(base: DINOv2ViT) -> None:
     for param in base.parameters():
@@ -103,17 +105,30 @@ class RetrievalNet(nn.Module):
 
 
 class LinearProjectionNet(nn.Module):
-    def __init__(self, model: VisionTransformer, embedding_dim=config.EMBEDDING_DIM):
+    def __init__(
+        self,
+        model: VisionTransformer,
+        pooling="cls",
+        embedding_dim=config.EMBEDDING_DIM,
+    ):
         super().__init__()
         self.model = model
+        self.pooling = pooling.lower()
         self.head = nn.Linear(384, embedding_dim)
         pass
 
     def forward(self, x):
         with torch.no_grad():
-            fdicts = self.model.forward_features(x)
-            clstokens = fdicts["x_norm_clstoken"]  # type: ignore
+            fdict = self.model.forward_features(x)
+            if self.pooling == "cls":
+                rfeats = fdict["x_norm_clstoken"]  # type: ignore
 
-        projected_features = self.head(clstokens)
+            elif self.pooling == "gap":
+                rfeats = fdict["x_norm_patchtokens"].mean(dim=1)  # type: ignore
+
+            else:
+                raise ValueError("Pooling must be 'cls' or 'gap'")
+
+        projected_features = self.head(rfeats)
 
         return nn.functional.normalize(projected_features, p=2, dim=1)
