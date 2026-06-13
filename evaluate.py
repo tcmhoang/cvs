@@ -39,7 +39,7 @@ def apply_aqe(features: NDArray, k_aqe=3, a=0.7) -> NDArray:
 
 
 def extract_features(
-    m: VNet, dataloader: DataLoader[Tensor], dev: torch.device
+    m: VNet, dataloader: DataLoader[Tensor], dev: torch.device, tta=True
 ) -> Tuple[NDArray, NDArray]:
     m.eval()
 
@@ -63,6 +63,8 @@ def extract_features(
                             .numpy(),
                             cast(Tensor, label).numpy(),
                         )
+                        if tta
+                        else (m.forward(img.to(dev)).cpu().numpy(), label.numpy())
                         for img, label in dataloader
                     ]
                 )
