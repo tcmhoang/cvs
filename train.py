@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 import config
 from dataset import ImageFolder
-from model import VNet
+from model import RetrievalNet, VNet
 from proc import Logger
 
 import numpy as np
@@ -69,7 +69,7 @@ def pa_loss(numclsses: int) -> LossPack:
     )
 
 
-def coscons_loss() -> LossPack:
+def coscons_loss(_: int) -> LossPack:
     return LossPack(
         losses.ContrastiveLoss(
             pos_margin=1, neg_margin=0, distance=distances.CosineSimilarity()
@@ -85,7 +85,7 @@ def get_opt_params(m: VNet, lr: float, params: List[Dict[Any, Any]]) -> ParamsT:
     def go(weight_decay=0.05) -> List[dict]:
         blocks = cast(nn.ModuleList, m.model.blocks)
         backbone = [blocks[-1], m.model.norm]
-        head = [m.gem, m.fc]
+        head = [m.gem, m.fc] if type(m) is RetrievalNet else []
 
         m_w_lrc = [(backbone, 0.1), (head, 5)]
 
@@ -117,11 +117,12 @@ def get_opt_params(m: VNet, lr: float, params: List[Dict[Any, Any]]) -> ParamsT:
 
 
 def retrieval_model(
-    m: nn.Module,
+    m: VNet,
     train_dataset_supplier: Callable[[], ImageFolder],
     device: device,
     logger: Logger,
     fetch_losspck: Callable[[int], LossPack] = pa_loss,
+    skewed_ds=True,
     epochs=config.EPOCHS,
     batch_size=config.BATCH_SZ,
     lr=config.LEARNING_RATE,
@@ -130,21 +131,25 @@ def retrieval_model(
     m.train()
 
     train_dataset = train_dataset_supplier()
+    sampler = None
 
-    targets = train_dataset.targets
-    sample_weights_np = 1.0 / np.bincount(targets)
-    sample_weights = [float(sample_weights_np[t]) for t in targets]
-    sampler = WeightedRandomSampler(
-        weights=sample_weights,
-        num_samples=len(sample_weights),
-        replacement=True,
-    )
+    if skewed_ds:
+        targets = train_dataset.targets
+        sample_weights_np = 1.0 / (np.bincount(targets) + 1e-6)
+        sample_weights = [float(sample_weights_np[t]) for t in targets]
+        sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(sample_weights),
+            replacement=True,
+        )
+        pass
 
     loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         sampler=sampler,
-        num_workers=4,
+        shuffle=not skewed_ds,
+        num_workers=config.NUM_WORKERS,
         pin_memory=True,
         drop_last=True,
     )
