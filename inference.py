@@ -9,13 +9,13 @@ from torch.amp.autocast_mode import autocast
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import Compose
 
-from model import RetrievalNet
+from model import VNet
 
 
 class Inference:
     def __init__(
         self,
-        wmodel: RetrievalNet,
+        wmodel: VNet,
         device: device,
         testdb: ImageFolder,
         trans: Compose,

@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 import config
 from dataset import ImageFolder
-from model import RetrievalNet
+from model import VNet
 from proc import Logger
 
 import numpy as np
@@ -81,7 +81,7 @@ def coscons_loss() -> LossPack:
     )
 
 
-def get_opt_params(m: RetrievalNet, lr: float, params: List[Dict[Any, Any]]) -> ParamsT:
+def get_opt_params(m: VNet, lr: float, params: List[Dict[Any, Any]]) -> ParamsT:
     def go(weight_decay=0.05) -> List[dict]:
         blocks = cast(nn.ModuleList, m.model.blocks)
         backbone = [blocks[-1], m.model.norm]

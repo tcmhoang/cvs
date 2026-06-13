@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 
 import dio
 from dataset import Tensor
-from model import RetrievalNet
+from model import VNet
 from proc import Dict
 
 
@@ -39,7 +39,7 @@ def apply_aqe(features: NDArray, k_aqe=3, a=0.7) -> NDArray:
 
 
 def extract_features(
-    m: RetrievalNet, dataloader: DataLoader[Tensor], dev: torch.device
+    m: VNet, dataloader: DataLoader[Tensor], dev: torch.device
 ) -> Tuple[NDArray, NDArray]:
     m.eval()
 

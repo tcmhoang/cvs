@@ -62,7 +62,12 @@ class GeM(nn.Module):
         return x.clamp(min=self.eps).pow(self.p).mean(dim=1).pow(1.0 / self.p)
 
 
-class RetrievalNet(nn.Module):
+class VNet(nn.Module):
+    model: VisionTransformer
+    pass
+
+
+class RetrievalNet(VNet):
     def __init__(
         self,
         model: VisionTransformer,
@@ -104,7 +109,7 @@ class RetrievalNet(nn.Module):
         return nn.functional.normalize(pooled + embeddings, p=2, dim=1)
 
 
-class LinearProjectionNet(nn.Module):
+class LinearProjectionNet(VNet):
     def __init__(
         self,
         model: VisionTransformer,
