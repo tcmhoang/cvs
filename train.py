@@ -1,7 +1,17 @@
-from typing import Callable, List, Tuple, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    NamedTuple,
+    Tuple,
+    cast,
+    Protocol,
+)
 
 import torch
-from pytorch_metric_learning import losses
+from pytorch_metric_learning import losses, distances
 from torch import (
     device,
     nn,
@@ -9,6 +19,7 @@ from torch import (
 )
 from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
+from torch.optim.optimizer import ParamsT
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 import config
@@ -19,11 +30,98 @@ from proc import Logger
 import numpy as np
 
 
+class LossFunction(Protocol):
+    def parameters(self) -> Iterator[nn.Parameter]: ...
+    def to(self, device: device) -> "LossFunction": ...
+    def forward(
+        self,
+        embeddings: Any,
+        labels: Any | None = None,
+    ) -> Any: ...
+
+    pass
+
+
+class LossPack(NamedTuple):
+    fn: LossFunction
+    optim_params: Callable[[nn.Module, float], ParamsT]
+    amp_clip: bool
+
+    pass
+
+
+def pa_loss(numclsses: int) -> LossPack:
+    loss_fn = losses.ProxyAnchorLoss(
+        num_classes=numclsses,
+        embedding_size=config.EMBEDDING_DIM,
+        margin=config.PA_MARGIN,
+        alpha=config.PA_A,
+    )
+
+    return LossPack(
+        loss_fn,
+        lambda m, lr: get_opt_params(
+            m,
+            lr,
+            [{"params": loss_fn.parameters(), "lr": lr * 100, "weight_decay": 1e-4}],
+        ),
+        True,
+    )
+
+
+def coscons_loss() -> LossPack:
+    return LossPack(
+        losses.ContrastiveLoss(
+            pos_margin=1, neg_margin=0, distance=distances.CosineSimilarity()
+        ),
+        lambda m, _: [
+            {"params": m.head.parameters(), "lr": 1e-3, "weight_decay": 1e-4}
+        ],
+        False,
+    )
+
+
+def get_opt_params(m: RetrievalNet, lr: float, params: List[Dict[Any, Any]]) -> ParamsT:
+    def go(weight_decay=0.05) -> List[dict]:
+        blocks = cast(nn.ModuleList, m.model.blocks)
+        backbone = [blocks[-1], m.model.norm]
+        head = [m.gem, m.fc]
+
+        m_w_lrc = [(backbone, 0.1), (head, 5)]
+
+        def go_nwlr(data: Tuple[List[nn.Module], float]) -> List[dict]:
+            ms, coeff = data
+            return [
+                {
+                    "params": name_w_param[1],
+                    "lr": lr * coeff,
+                    "weight_decay": 0.0
+                    if name_w_param[0].endswith(".bias")
+                    or len(name_w_param[1].shape) == 1
+                    else weight_decay,
+                }
+                for m in ms
+                for name_w_param in m.named_parameters()
+                if name_w_param[1].requires_grad
+            ]
+
+        return [params for e in m_w_lrc for params in go_nwlr(e)]
+
+    ps = go()
+
+    for p in params:
+        ps.append(p)
+        pass
+
+    return ps
+
+
 def retrieval_model(
-    m: RetrievalNet,
+    m: nn.Module,
     train_dataset_supplier: Callable[[], ImageFolder],
     device: device,
     logger: Logger,
+    fetch_losspck: Callable[[int], LossPack] = pa_loss,
     epochs=config.EPOCHS,
     batch_size=config.BATCH_SZ,
     lr=config.LEARNING_RATE,
@@ -51,44 +149,12 @@ def retrieval_model(
         drop_last=True,
     )
 
-    def get_optimizer_params(weight_decay=0.05) -> List[dict]:
-        blocks = cast(nn.ModuleList, m.model.blocks)
-        backbone = [blocks[-1], m.model.norm]
-        head = [m.gem, m.fc]
+    num_classes = len(train_dataset.classes)
 
-        m_w_lrc = [(backbone, 0.1), (head, 5)]
+    losspck = fetch_losspck(num_classes)
+    loss_fn = losspck.fn.to(device)
 
-        def go_nwlr(data: Tuple[List[nn.Module], float]) -> List[dict]:
-            ms, coeff = data
-            return [
-                {
-                    "params": name_w_param[1],
-                    "lr": lr * coeff,
-                    "weight_decay": 0.0
-                    if name_w_param[0].endswith(".bias")
-                    or len(name_w_param[1].shape) == 1
-                    else weight_decay,
-                }
-                for m in ms
-                for name_w_param in m.named_parameters()
-                if name_w_param[1].requires_grad
-            ]
-
-        return [params for e in m_w_lrc for params in go_nwlr(e)]
-
-    loss_fn = losses.ProxyAnchorLoss(
-        num_classes=len(train_dataset.classes),
-        embedding_size=config.EMBEDDING_DIM,
-        margin=config.PA_MARGIN,
-        alpha=config.PA_A,
-    ).to(device)
-
-    params = get_optimizer_params()
-    params.append(
-        {"params": loss_fn.parameters(), "lr": lr * 100, "weight_decay": 1e-4}
-    )
-
-    optimizer = optim.AdamW(params)
+    optimizer = optim.AdamW(losspck.optim_params(m, lr))
 
     wepochs = int(config.WARM_UP_PERC * epochs)
 
@@ -123,7 +189,10 @@ def retrieval_model(
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)  # Gradient before clipping
 
-            torch.nn.utils.clip_grad_norm_(loss_fn.parameters(), max_norm=1.0)
+            if losspck.amp_clip:
+                torch.nn.utils.clip_grad_norm_(loss_fn.parameters(), max_norm=1.0)
+                pass
+
             nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
 
             scaler.step(optimizer)

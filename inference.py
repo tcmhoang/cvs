@@ -30,7 +30,7 @@ class Inference:
 
         faiss.normalize_L2(feats)
         self.index = faiss.IndexFlatIP(feats.shape[1])
-        self.index.add(feats)  # type: ignore
+        self.index.add(feats)
         pass
 
     def retrieve(self, image_path: str, top_k: int = 5) -> List:
@@ -48,7 +48,7 @@ class Inference:
             pass
 
         emb_np = emb.cpu().numpy()
-        distances, indices = self.index.search(emb_np, top_k)  # type: ignore
+        distances, indices = self.index.search(emb_np, top_k)
 
         results = []
         for i in range(top_k):

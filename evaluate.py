@@ -75,8 +75,8 @@ def extract_features(
 def _io_add_and_search(
     index: faiss.Index, query_feats: NDArray, top_k: int
 ) -> Tuple[NDArray, NDArray]:
-    index.add(query_feats)  # type: ignore
-    distances, indices = index.search(query_feats, top_k)  # type: ignore
+    index.add(query_feats)
+    distances, indices = index.search(query_feats, top_k)
 
     return distances, indices
 
